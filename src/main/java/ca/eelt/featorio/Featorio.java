@@ -2,6 +2,7 @@ package ca.eelt.featorio;
 
 import ca.eelt.featorio.config.ConfigSerializer;
 import ca.eelt.featorio.level.Modifiers;
+import ca.eelt.featorio.level.feature.Features;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.level.block.Blocks;
@@ -38,6 +39,7 @@ public class Featorio {
 
         // Deferred registration occurs here
         Modifiers.FEATORIO_MODIFIER_REGISTRY.register(modEventBus);
+        Features.FEATORIO_FEATURE_REGISTRY.register(modEventBus);
 
         // Build Featorio directory
         basePath = FMLPaths.CONFIGDIR.get().resolve(Featorio.MODID);

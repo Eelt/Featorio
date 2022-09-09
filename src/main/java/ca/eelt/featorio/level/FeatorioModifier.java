@@ -2,6 +2,8 @@ package ca.eelt.featorio.level;
 
 import ca.eelt.featorio.config.ConfigSerializer;
 import ca.eelt.featorio.config.FeatorioFeatureEntry;
+import ca.eelt.featorio.level.feature.Features;
+import ca.eelt.featorio.level.feature.lakes.CustomLakeFeature;
 import com.mojang.serialization.Codec;
 import net.minecraft.core.Holder;
 import net.minecraft.tags.TagKey;
@@ -10,6 +12,7 @@ import net.minecraft.world.level.levelgen.VerticalAnchor;
 import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration;
+import net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvider;
 import net.minecraft.world.level.levelgen.placement.*;
 import net.minecraftforge.common.world.BiomeModifier;
 import net.minecraftforge.common.world.ModifiableBiomeInfo;
@@ -50,8 +53,29 @@ public class FeatorioModifier implements BiomeModifier {
 
             System.out.println("Verified Tags are correct");
 
-            ConfiguredFeature<?,?> modifiedConfiguredFeature = new ConfiguredFeature<>(Feature.ORE,
-                    new OreConfiguration(entry.targetBlockStates(), entry.getSize(), entry.getDiscard()));
+            ConfiguredFeature<?,?> modifiedConfiguredFeature = null;
+
+//            if (entry.additionType() == ConfigSerializer.AdditionType.ORE_CONFIGURATION){
+//                modifiedConfiguredFeature = new ConfiguredFeature<>(Feature.ORE,
+//                        new OreConfiguration(entry.targetBlockStates(), entry.getSize(), entry.getDiscard()));
+//            } else if (entry.additionType() == ConfigSerializer.AdditionType.BLOCK_STATE_CONFIGURATION){
+//            } else if (entry.additionType() == ConfigSerializer.AdditionType.LAKE_CONFIGURATION){
+//            } else if (entry.additionType() == ConfigSerializer.AdditionType.SURFACE_LAKE_CONFIGURATION){
+//            } else if (entry.additionType() == ConfigSerializer.AdditionType.UNDERGROUND_LAKE_CONFIGURATION){
+//            } else throw new RuntimeException("The Featorio addition entry type: " + entry.additionType() + " doesn't have logic in FeatorioModifier to generate the placed feature and add it to a biome. This is a bug! Please open an issue on our GitHub with this error message (and logs please!)");
+
+            modifiedConfiguredFeature = switch (entry.additionType()){
+                case ORE_CONFIGURATION -> new ConfiguredFeature<>(Feature.ORE,
+                        new OreConfiguration(entry.targetBlockStates(), entry.getSize(), entry.getDiscard()));
+//                case BLOCK_STATE_CONFIGURATION -> null;
+                case LAKE_CONFIGURATION -> new ConfiguredFeature<>(Features.CUSTOM_LAKE_FEATURE.get(),
+                        new CustomLakeFeature.Configuration(
+                                BlockStateProvider.simple(entry.lakeStates().getA()),
+                                BlockStateProvider.simple(entry.lakeStates().getB()),
+                                entry.generatePerimeter()
+                        ));
+                default -> throw new RuntimeException("The Featorio addition entry type: " + entry.additionType() + " doesn't have logic in FeatorioModifier to generate the placed feature and add it to a biome. This is a bug! Please open an issue on our GitHub with this error message (and logs please!)");
+            };
 
             Holder<PlacedFeature> newPlacedFeature = entry.getIsTriangular() ?
                     Holder.direct(new PlacedFeature(Holder.direct(modifiedConfiguredFeature), List.of(

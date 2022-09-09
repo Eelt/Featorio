@@ -2,6 +2,7 @@ package ca.eelt.featorio.config;
 
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.GenerationStep;
 import net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration;
 import net.minecraftforge.common.world.BiomeModifier;
@@ -15,7 +16,9 @@ public record FeatorioFeatureEntry(BiomeModifier.Phase phase,
                                    //@Nullable List<Holder<Biome>> biomes,
                                    @Nullable List<TagKey<Biome>> mandatoryIncludeKeys,
                                    @Nullable List<TagKey<Biome>> anyExcludeKeys,
-                                   @Nullable List<OreConfiguration.TargetBlockState> targetBlockStates,
+                                   @Nullable List<OreConfiguration.TargetBlockState> targetBlockStates,// Ore generation
+                                   @Nullable Pair<BlockState,BlockState> lakeStates, // Lake Blockstates, A = Fluid, B = Perimeter
+                                   boolean generatePerimeter, // Lake: Generate a perimeter around the lake
                                    FeatureConfiguration featureConfiguration,
                                    GenerationStep.Decoration generationStepping) {
 
