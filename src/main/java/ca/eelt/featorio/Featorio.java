@@ -63,7 +63,7 @@ public class Featorio {
         ConfigSerializer.serialize();
         System.out.println("Addition Entries size after serialization: " + ConfigSerializer.additionEntries.get().size());
         ConfigSerializer.additionEntries.get().forEach(entry -> {
-            System.out.println("Include Keys: " + entry.manditoryIncludeKeys());
+            System.out.println("Include Keys: " + entry.mandatoryIncludeKeys());
             System.out.println("Exclude Keys: " + entry.anyExcludeKeys());
             System.out.println("Stepping: " + entry.generationStepping());
         });

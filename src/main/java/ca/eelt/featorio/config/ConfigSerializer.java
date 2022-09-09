@@ -1,20 +1,19 @@
 package ca.eelt.featorio.config;
 
 import ca.eelt.featorio.Featorio;
-import com.google.gson.Gson;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import net.minecraft.core.Holder;
+import ca.eelt.featorio.misc.Util;
+import com.google.gson.*;
 import net.minecraft.core.Registry;
-import net.minecraft.data.BuiltinRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.GsonHelper;
 import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.biome.Biomes;
-import net.minecraft.world.level.levelgen.placement.PlacedFeature;
+import net.minecraft.world.level.levelgen.GenerationStep;
+import net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration;
+import net.minecraft.world.level.levelgen.structure.templatesystem.TagMatchTest;
 import net.minecraftforge.common.world.BiomeModifier;
 import net.minecraftforge.registries.ForgeRegistries;
+import oshi.util.tuples.Pair;
 
 import java.io.File;
 import java.io.IOException;
@@ -49,84 +48,19 @@ public class ConfigSerializer {
                 System.out.println("Printing loaded addition JSON " + file.getName() + ": ");
                 System.out.println(masterObject.toString());
 
-                // Data
-                //Holder<Biome> biomeHolder = Holder.direct(Biomes.DESERT);
-                AtomicReference<ArrayList<TagKey<Biome>>> whitelistedBiomeKeys = new AtomicReference<>(new ArrayList<>());
-                AtomicReference<ArrayList<TagKey<Biome>>> blacklistedBiomeKeys = new AtomicReference<>(new ArrayList<>());
-                //Optional<Holder<Feature<?>>> feature = Optional.empty();
-                Holder<PlacedFeature> feature = null;
-                boolean triangularPlacement = false;
-                int count = 0;
-                int bottomAnchor = -64;
-                int topAnchor = 320;
-                int rarity = 10;
-                String stepping = "underground_ores";
-
                 // Serialize JSON
-                if (masterObject.has("biome")) {
-                    //biomeHolder = Holder.direct(ForgeRegistries.BIOMES.getValue(new ResourceLocation(masterObject.get("biome").getAsString())));
+                if (masterObject.has("addition_type")){
+                    String additionTypeString = masterObject.get("addition_type").getAsString();
+                    System.out.println("Addition Type String captured: " + additionTypeString);
 
-                } else if (masterObject.has("whitelisted_biome_keys")
-                        || masterObject.has("blacklisted_biome_keys")){
-
-                    if (masterObject.has("whitelisted_biome_keys")){
-
-                        Arrays.stream(masterObject.get("whitelisted_biome_keys").getAsString().split(",")).sequential().forEach(whitelistedKey ->
-                                whitelistedBiomeKeys.get().add(TagKey.create(Registry.BIOME_REGISTRY, new ResourceLocation(whitelistedKey))));
-                    }
-
-                    if (masterObject.has("blacklisted_biome_keys")){
-
-                        Arrays.stream(masterObject.get("blacklisted_biome_keys").getAsString().split(",")).sequential().forEach(blacklistedKey ->
-                                blacklistedBiomeKeys.get().add(TagKey.create(Registry.BIOME_REGISTRY, new ResourceLocation(blacklistedKey))));
+                    if (additionTypeString.equals("ore_configuration")){
+                        additionEntries.get().add(generateOreConfigurationAddition(masterObject));
+                    } else if (additionTypeString.equals("block_state_configuration")){
+                        //additionType = AdditionType.BLOCK_STATE_CONFIGURATION;
+                    } else if (additionTypeString.equals("lakes_configuration")){
+                        //additionType = AdditionType.LAKE_CONFIGURATION;
                     }
                 }
-
-                if (masterObject.has("feature")){
-                    //feature = ForgeRegistries.FEATURES.getHolder(new ResourceLocation(masterObject.get("feature").getAsString()));
-                    feature = Holder.direct(BuiltinRegistries.PLACED_FEATURE.get(new ResourceLocation(masterObject.get("feature").getAsString())));
-                }
-
-                if (masterObject.has("triangular_placement")){
-                    triangularPlacement = masterObject.get("triangular_placement").getAsBoolean();
-                }
-
-                if (masterObject.has("count")){
-                    count = masterObject.get("count").getAsInt();
-                }
-
-                if (masterObject.has("bottom_anchor")){
-                    bottomAnchor = masterObject.get("bottom_anchor").getAsInt();
-                }
-
-                if (masterObject.has("top_anchor")){
-                    topAnchor = masterObject.get("top_anchor").getAsInt();
-                }
-
-                if (masterObject.has("rarity")){
-                    rarity = masterObject.get("rarity").getAsInt();
-                }
-
-                if (masterObject.has("stepping")){
-                    stepping = masterObject.get("stepping").getAsString();
-                }
-
-                System.out.println("Adding addition entry!");
-                additionEntries.get().add(
-                        new FeatorioFeatureEntry(
-                                BiomeModifier.Phase.ADD,
-                                //List.of(biomeHolder),
-                                whitelistedBiomeKeys.get(),
-                                blacklistedBiomeKeys.get(),
-                                feature,
-                                triangularPlacement,
-                                count,
-                                bottomAnchor,
-                                topAnchor,
-                                rarity,
-                                stepping
-                                )
-                );
 
             });
         }
@@ -160,6 +94,137 @@ public class ConfigSerializer {
         }
     }
 
+    private static FeatorioFeatureEntry generateOreConfigurationAddition(JsonObject masterObject){
+        AdditionType additionType = AdditionType.ORE_CONFIGURATION;
+        //Holder<Biome> biomeHolder = Holder.direct(Biomes.DESERT);
+        AtomicReference<ArrayList<TagKey<Biome>>> whitelistedBiomeKeys = new AtomicReference<>(new ArrayList<>());
+        AtomicReference<ArrayList<TagKey<Biome>>> blacklistedBiomeKeys = new AtomicReference<>(new ArrayList<>());
+        //Optional<Holder<Feature<?>>> feature = Optional.empty();
+        List<OreConfiguration.TargetBlockState> targetBlockStates = null;
+        FeatureConfiguration featureConfiguration = null;
+        GenerationStep.Decoration stepping = GenerationStep.Decoration.UNDERGROUND_ORES;
+
+        // serialize and process biome data
+        if (masterObject.has("biome_spawns")){
+            Pair<List<TagKey<Biome>>,List<TagKey<Biome>>> serializedBiomeKeys = buildBiomeTagKeys(masterObject.getAsJsonObject("biome_spawns"));
+
+            whitelistedBiomeKeys.get().addAll(serializedBiomeKeys.getA());
+            blacklistedBiomeKeys.get().addAll(serializedBiomeKeys.getB());
+        } else throw new JsonParseException("Can't find biome_spawns in JSON!");
+
+        // serialize and process blockstate targeting data
+        if (masterObject.has("blockstates")){
+            targetBlockStates = buildTargettedBlockstateData(masterObject.getAsJsonArray("blockstates"));
+        } else throw new JsonParseException("Can't find blockstates in JSON!");
+
+        // Serialize and process the main configuration of the feature to be added
+        if (masterObject.has("configuration")){
+            featureConfiguration = buildFeatureConfiguration(masterObject.get("configuration").getAsJsonObject());
+        } else throw new JsonParseException("Can't find configuration in JSON!");
+
+        if (masterObject.has("generation_step")){
+            stepping = Util.computeStepping(masterObject.get("generation_step").getAsString());
+        } else throw new JsonParseException("Can't find generation_step in JSON!");
+
+        return new FeatorioFeatureEntry(
+                BiomeModifier.Phase.ADD,
+                additionType,
+                whitelistedBiomeKeys.get(),
+                blacklistedBiomeKeys.get(),
+                targetBlockStates,
+                featureConfiguration,
+                stepping
+        );
+    }
+
+    private static Pair<List<TagKey<Biome>>,List<TagKey<Biome>>> buildBiomeTagKeys(JsonObject biomeObject){
+        AtomicReference<ArrayList<TagKey<Biome>>> whitelistedBiomeKeys = new AtomicReference<>(new ArrayList<>());
+        AtomicReference<ArrayList<TagKey<Biome>>> blacklistedBiomeKeys = new AtomicReference<>(new ArrayList<>());
+
+        if (biomeObject.has("whitelisted_biome_keys")){
+            String whitelist = biomeObject.get("whitelisted_biome_keys").getAsString();
+
+            if (!whitelist.equals("")){
+                Arrays.stream(whitelist.split(",")).sequential().forEach(whitelistedKey ->
+                        whitelistedBiomeKeys.get().add(TagKey.create(Registry.BIOME_REGISTRY, new ResourceLocation(whitelistedKey))));
+            }
+
+        }
+
+        if (biomeObject.has("blacklisted_biome_keys")) {
+            String blacklist = biomeObject.get("blacklisted_biome_keys").getAsString();
+
+            if (!blacklist.equals("")) {
+                Arrays.stream(blacklist.split(",")).sequential().forEach(blacklistedKey ->
+                        blacklistedBiomeKeys.get().add(TagKey.create(Registry.BIOME_REGISTRY, new ResourceLocation(blacklistedKey))));
+            }
+
+        }
+
+        return new Pair<>(whitelistedBiomeKeys.get(), blacklistedBiomeKeys.get());
+    }
+
+    private static List<OreConfiguration.TargetBlockState> buildTargettedBlockstateData(JsonArray blockstateArray){
+        AtomicReference<ArrayList<OreConfiguration.TargetBlockState>> oreTargets = new AtomicReference<>(new ArrayList<>());
+
+        blockstateArray.forEach(jsonElement -> {
+            JsonArray jsonStatePair = jsonElement.getAsJsonArray();
+            assert jsonStatePair.size() == 2; // Assert pairwise. Tag to target + the block that'll be placed on the validly targeted blocks
+
+            // Build the target
+            OreConfiguration.TargetBlockState oreTarget = OreConfiguration.target(
+                    new TagMatchTest(TagKey.create(Registry.BLOCK_REGISTRY, new ResourceLocation(jsonStatePair.get(0).getAsString()))),
+                    ForgeRegistries.BLOCKS.getValue(new ResourceLocation(jsonStatePair.get(1).getAsString())).defaultBlockState()
+            );
+
+            oreTargets.get().add(oreTarget);
+        });
+
+        return oreTargets.get();
+    }
+
+    private static FeatureConfiguration buildFeatureConfiguration(JsonObject configurationObject){
+        boolean triangularPlacement = false;
+        int size = 0;
+        int count = 0;
+        int bottomAnchor = -64;
+        int topAnchor = 320;
+        int rarity = 0;
+        float discard = 0;
+
+        if (configurationObject.has("triangular_placement")){
+            triangularPlacement = configurationObject.get("triangular_placement").getAsBoolean();
+        }
+
+        if (configurationObject.has("size")){
+            size = configurationObject.get("size").getAsInt();
+        }
+
+        if (configurationObject.has("count")){
+            count = configurationObject.get("count").getAsInt();
+        }
+
+        if (configurationObject.has("bottom_anchor")){
+            bottomAnchor = configurationObject.get("bottom_anchor").getAsInt();
+            assert bottomAnchor > -65 && bottomAnchor < 321;
+        }
+
+        if (configurationObject.has("top_anchor")){
+            topAnchor = configurationObject.get("top_anchor").getAsInt();
+            assert topAnchor > -65 && topAnchor < 321;
+        }
+
+        if (configurationObject.has("rarity")){
+            rarity = configurationObject.get("rarity").getAsInt();
+        }
+
+        if (configurationObject.has("discard")){
+            discard = configurationObject.get("discard").getAsFloat();
+        }
+
+        return new FeatureConfiguration(triangularPlacement, size, count, bottomAnchor, topAnchor, rarity, discard);
+    }
+
     public static JsonElement getJsonFromFile(String path) {
         JsonElement jsonElement;
         try {
@@ -173,4 +238,9 @@ public class ConfigSerializer {
         return jsonElement;
     }
 
+    public enum AdditionType {
+        ORE_CONFIGURATION,
+        BLOCK_STATE_CONFIGURATION,
+        LAKE_CONFIGURATION
+    }
 }
