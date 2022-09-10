@@ -36,8 +36,8 @@ public class FeatorioModifier implements BiomeModifier {
         System.out.println("Modify called, Phase: " + phase);
         switch (phase){
             case ADD -> runAdditions(biome, builder);
-            case MODIFY -> runModifies(biome.get(), builder);
-            case REMOVE -> runRemovals(biome.get(), builder);
+            case MODIFY -> runModifies(biome, builder);
+            case REMOVE -> runRemovals(biome, builder);
         }
     }
 
@@ -103,60 +103,64 @@ public class FeatorioModifier implements BiomeModifier {
 
     }
 
-    private void runModifies(Biome biome, ModifiableBiomeInfo.BiomeInfo.Builder builder){
-        AtomicReference<ModifiableBiomeInfo.BiomeInfo.Builder> atomicBuilder = new AtomicReference<>(builder);
+    // See net.minecraftforge.common.world.ForgeBiomeModifiers#RemoveFeaturesBiomeModifier record
+    private void runModifies(Holder<Biome> biome, ModifiableBiomeInfo.BiomeInfo.Builder builder){
+        System.out.println("Run Modifies called! ");
 
         for (GenerationStep.Decoration stepping : GenerationStep.Decoration.values()){ // Process on per stepping basis
 
+            System.out.println("Processing modifies for Generation step: " + stepping);
             AtomicReference<ArrayList<Holder<PlacedFeature>>> placementsToRemove = new AtomicReference<>(new ArrayList<>());
             AtomicReference<ArrayList<Holder<PlacedFeature>>> featuresToAdd = new AtomicReference<>(new ArrayList<>());
 
             ConfigSerializer.modifyEntries.get().parallelStream().forEach(entry -> { // Go through all modification entries
 
-                if (entry.modificationType() == ConfigSerializer.ModificationType.PLACEMENT && entry.placement() != null){ // Placement isn't null
+                if (entry.modificationType() == ConfigSerializer.ModificationType.PLACEMENT && entry.placement() != null){ // Modify by checking placements
                     PlacedFeature entryPlacement = entry.placement();
+                    System.out.println("Found modification entry of type: " + entry.modificationType() + " for " + stepping + " in biome with keys: ");
+                    biome.getTagKeys().toList().forEach(biomeTagKey -> System.out.print(biomeTagKey));
 
                     for(int i = 0; i < builder.getGenerationSettings().getFeatures(stepping).size(); i++) { // Iterate through all placements
                         PlacedFeature builtPlacement = builder.getGenerationSettings().getFeatures(stepping).get(i).get();
 
                         if (builtPlacement.equals(entryPlacement)){
                             placementsToRemove.get().add(Holder.direct(builtPlacement));
+                            System.out.println("Found targeted placement! Entry: " + entryPlacement + " built: " + builtPlacement);
                         }
                     }
 
-                    if (entry.generationStepping() == stepping && biomeHasValidTags(entry.mandatoryIncludeKeys(), entry.mandatoryIncludeKeys(), Holder.direct(biome))){
-                        Holder<PlacedFeature> modifiedPlacement = entry.getIsTriangular() ?
-                                Holder.direct(new PlacedFeature(Holder.direct(entryPlacement.feature().get()), List.of(
-                                        HeightRangePlacement.triangle(VerticalAnchor.absolute(entry.getBottomAnchor()), VerticalAnchor.absolute(entry.getTopAnchor())),
-                                        CountPlacement.of(entry.getCount()),
-                                        RarityFilter.onAverageOnceEvery(entry.getRarity()),
-                                        InSquarePlacement.spread()
-                                )))
-                                :
-                                Holder.direct(new PlacedFeature(Holder.direct(entryPlacement.feature().get()), List.of(
-                                        HeightRangePlacement.uniform(VerticalAnchor.absolute(entry.getBottomAnchor()), VerticalAnchor.absolute(entry.getTopAnchor())),
-                                        CountPlacement.of(entry.getCount()),
-                                        RarityFilter.onAverageOnceEvery(entry.getRarity()),
-                                        InSquarePlacement.spread()
-                                )));
+                    if (entry.generationStepping() == stepping && biomeHasValidTags(entry.mandatoryIncludeKeys(), entry.mandatoryIncludeKeys(), biome)){
 
-
-                        featuresToAdd.get().add(modifiedPlacement);
+                        featuresToAdd.get().add(buildPlacedFeature(entry, entryPlacement.feature().get())); // Build the PlacedFeature and add to List to be added later
+                        System.out.println("Adding modified feature on stepping: " + stepping + " " + entryPlacement.feature().get());
                     }
 
-                } else if (entry.modificationType() == ConfigSerializer.ModificationType.FEATURE && entry.featureToModify() != null){
+                } else if (entry.modificationType() == ConfigSerializer.ModificationType.FEATURE && entry.featureToModify() != null){ // Modify by checking features
+
+                    for (int i = 0; i < builder.getGenerationSettings().getFeatures(stepping).size(); i++){
+                        Holder<PlacedFeature> placedFeatureProxy = builder.getGenerationSettings().getFeatures(stepping).get(i);
+                        ConfiguredFeature<?,?> configuredFeature = placedFeatureProxy.get().feature().get();
+
+                        if (configuredFeature.feature().equals(entry.featureToModify())){
+                            placementsToRemove.get().add(placedFeatureProxy); // Easier if we just nuke all the placements of that pre-configured feature
+
+                            featuresToAdd.get().add(buildPlacedFeature(entry, configuredFeature)); // Build new placement and then add
+                        }
+                    }
 
                 }
             });
 
+            // Removals first
             if (!placementsToRemove.get().isEmpty()) builder.getGenerationSettings().getFeatures(stepping).removeAll(placementsToRemove.get());
 
-            if (!featuresToAdd.get().isEmpty()) builder.getGenerationSettings().getFeatures(stepping).addAll(featuresToAdd.get());
 
+            // Additions after to prevent issues/unwanted removals
+            if (!featuresToAdd.get().isEmpty()) builder.getGenerationSettings().getFeatures(stepping).addAll(featuresToAdd.get());
         }
     }
 
-    private void runRemovals(Biome biome, ModifiableBiomeInfo.BiomeInfo.Builder builder){
+    private void runRemovals(Holder<Biome> biome, ModifiableBiomeInfo.BiomeInfo.Builder builder){
 
     }
 
@@ -182,6 +186,50 @@ public class FeatorioModifier implements BiomeModifier {
         }
 
         return wPass == bPass;
+    }
+
+    private static Holder<PlacedFeature> buildPlacedFeature(FeatorioFeatureEntry entry, ConfiguredFeature<?,?> configuredFeature){
+        return buildPlacedFeature(
+                entry.getIsTriangular(),
+                configuredFeature,
+                entry.getBottomAnchor(),
+                entry.getTopAnchor(),
+                entry.getCount(),
+                entry.getRarity()
+        );
+    }
+
+    private static Holder<PlacedFeature> buildPlacedFeature(FeatorioModificationEntry entry, ConfiguredFeature<?,?> configuredFeature){
+        return buildPlacedFeature(
+                entry.getIsTriangular(),
+                configuredFeature,
+                entry.getBottomAnchor(),
+                entry.getTopAnchor(),
+                entry.getCount(),
+                entry.getRarity()
+        );
+    }
+
+    private static Holder<PlacedFeature> buildPlacedFeature(boolean isTriangular,
+                                                     ConfiguredFeature<?,?> configuredFeature,
+                                                     int bottomAnchor,
+                                                     int topAnchor,
+                                                     int count,
+                                                     int rarity){
+        return isTriangular ?
+                Holder.direct(new PlacedFeature(Holder.direct(configuredFeature), List.of(
+                        HeightRangePlacement.triangle(VerticalAnchor.absolute(bottomAnchor), VerticalAnchor.absolute(topAnchor)),
+                        CountPlacement.of(count),
+                        RarityFilter.onAverageOnceEvery(rarity),
+                        InSquarePlacement.spread()
+                )))
+                :
+                Holder.direct(new PlacedFeature(Holder.direct(configuredFeature), List.of(
+                        HeightRangePlacement.uniform(VerticalAnchor.absolute(bottomAnchor), VerticalAnchor.absolute(topAnchor)),
+                        CountPlacement.of(count),
+                        RarityFilter.onAverageOnceEvery(rarity),
+                        InSquarePlacement.spread()
+                )));
     }
 
     @Override
