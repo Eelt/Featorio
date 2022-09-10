@@ -1,5 +1,6 @@
 package ca.eelt.featorio.level;
 
+import ca.eelt.featorio.Featorio;
 import ca.eelt.featorio.config.ConfigSerializer;
 import ca.eelt.featorio.config.FeatorioFeatureEntry;
 import ca.eelt.featorio.config.FeatorioModificationEntry;
@@ -109,7 +110,7 @@ public class FeatorioModifier implements BiomeModifier {
 
         for (GenerationStep.Decoration stepping : GenerationStep.Decoration.values()){ // Process on per stepping basis
 
-            System.out.println("Processing modifies for Generation step: " + stepping);
+            Featorio.LOGGER.debug("Processing modifies for Generation step: " + stepping);
             AtomicReference<ArrayList<Holder<PlacedFeature>>> placementsToRemove = new AtomicReference<>(new ArrayList<>());
             AtomicReference<ArrayList<Holder<PlacedFeature>>> featuresToAdd = new AtomicReference<>(new ArrayList<>());
 
@@ -117,22 +118,23 @@ public class FeatorioModifier implements BiomeModifier {
 
                 if (entry.modificationType() == ConfigSerializer.ModificationType.PLACEMENT && entry.placement() != null){ // Modify by checking placements
                     PlacedFeature entryPlacement = entry.placement();
-                    System.out.println("Found modification entry of type: " + entry.modificationType() + " for " + stepping + " in biome with keys: ");
+                    Featorio.LOGGER.debug("Found modification entry of type: " + entry.modificationType() + " for " + stepping + " in biome with keys: ");
                     biome.getTagKeys().toList().forEach(biomeTagKey -> System.out.print(biomeTagKey));
 
                     for(int i = 0; i < builder.getGenerationSettings().getFeatures(stepping).size(); i++) { // Iterate through all placements
                         PlacedFeature builtPlacement = builder.getGenerationSettings().getFeatures(stepping).get(i).get();
 
-                        if (builtPlacement.equals(entryPlacement)){
+                        //Featorio.LOGGER.debug("bultPlacement: "  + builtPlacement.toString() + " entryPlacement" + entryPlacement.toString());
+                        if (builtPlacement.toString().equals(entryPlacement.toString())/*builtPlacement.equals(entryPlacement)*/){
                             placementsToRemove.get().add(Holder.direct(builtPlacement));
-                            System.out.println("Found targeted placement! Entry: " + entryPlacement + " built: " + builtPlacement);
+                            Featorio.LOGGER.debug("Found targeted placement! Entry: " + entryPlacement + " built: " + builtPlacement);
                         }
                     }
 
                     if (entry.generationStepping() == stepping && biomeHasValidTags(entry.mandatoryIncludeKeys(), entry.mandatoryIncludeKeys(), biome)){
 
                         featuresToAdd.get().add(buildPlacedFeature(entry, entryPlacement.feature().get())); // Build the PlacedFeature and add to List to be added later
-                        System.out.println("Adding modified feature on stepping: " + stepping + " " + entryPlacement.feature().get());
+                        Featorio.LOGGER.debug("Adding modified feature on stepping: " + stepping + " " + entryPlacement.feature().get());
                     }
 
                 } else if (entry.modificationType() == ConfigSerializer.ModificationType.FEATURE && entry.featureToModify() != null){ // Modify by checking features
