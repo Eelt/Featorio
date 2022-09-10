@@ -2,12 +2,14 @@ package ca.eelt.featorio.level;
 
 import ca.eelt.featorio.config.ConfigSerializer;
 import ca.eelt.featorio.config.FeatorioFeatureEntry;
+import ca.eelt.featorio.config.FeatorioModificationEntry;
 import ca.eelt.featorio.level.feature.Features;
 import ca.eelt.featorio.level.feature.lakes.CustomLakeFeature;
 import com.mojang.serialization.Codec;
 import net.minecraft.core.Holder;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.levelgen.GenerationStep;
 import net.minecraft.world.level.levelgen.VerticalAnchor;
 import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
 import net.minecraft.world.level.levelgen.feature.Feature;
@@ -17,7 +19,9 @@ import net.minecraft.world.level.levelgen.placement.*;
 import net.minecraftforge.common.world.BiomeModifier;
 import net.minecraftforge.common.world.ModifiableBiomeInfo;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class FeatorioModifier implements BiomeModifier {
 
@@ -100,7 +104,56 @@ public class FeatorioModifier implements BiomeModifier {
     }
 
     private void runModifies(Biome biome, ModifiableBiomeInfo.BiomeInfo.Builder builder){
+        AtomicReference<ModifiableBiomeInfo.BiomeInfo.Builder> atomicBuilder = new AtomicReference<>(builder);
 
+        for (GenerationStep.Decoration stepping : GenerationStep.Decoration.values()){ // Process on per stepping basis
+
+            AtomicReference<ArrayList<Holder<PlacedFeature>>> placementsToRemove = new AtomicReference<>(new ArrayList<>());
+            AtomicReference<ArrayList<Holder<PlacedFeature>>> featuresToAdd = new AtomicReference<>(new ArrayList<>());
+
+            ConfigSerializer.modifyEntries.get().parallelStream().forEach(entry -> { // Go through all modification entries
+
+                if (entry.modificationType() == ConfigSerializer.ModificationType.PLACEMENT && entry.placement() != null){ // Placement isn't null
+                    PlacedFeature entryPlacement = entry.placement();
+
+                    for(int i = 0; i < builder.getGenerationSettings().getFeatures(stepping).size(); i++) { // Iterate through all placements
+                        PlacedFeature builtPlacement = builder.getGenerationSettings().getFeatures(stepping).get(i).get();
+
+                        if (builtPlacement.equals(entryPlacement)){
+                            placementsToRemove.get().add(Holder.direct(builtPlacement));
+                        }
+                    }
+
+                    if (entry.generationStepping() == stepping && biomeHasValidTags(entry.mandatoryIncludeKeys(), entry.mandatoryIncludeKeys(), Holder.direct(biome))){
+                        Holder<PlacedFeature> modifiedPlacement = entry.getIsTriangular() ?
+                                Holder.direct(new PlacedFeature(Holder.direct(entryPlacement.feature().get()), List.of(
+                                        HeightRangePlacement.triangle(VerticalAnchor.absolute(entry.getBottomAnchor()), VerticalAnchor.absolute(entry.getTopAnchor())),
+                                        CountPlacement.of(entry.getCount()),
+                                        RarityFilter.onAverageOnceEvery(entry.getRarity()),
+                                        InSquarePlacement.spread()
+                                )))
+                                :
+                                Holder.direct(new PlacedFeature(Holder.direct(entryPlacement.feature().get()), List.of(
+                                        HeightRangePlacement.uniform(VerticalAnchor.absolute(entry.getBottomAnchor()), VerticalAnchor.absolute(entry.getTopAnchor())),
+                                        CountPlacement.of(entry.getCount()),
+                                        RarityFilter.onAverageOnceEvery(entry.getRarity()),
+                                        InSquarePlacement.spread()
+                                )));
+
+
+                        featuresToAdd.get().add(modifiedPlacement);
+                    }
+
+                } else if (entry.modificationType() == ConfigSerializer.ModificationType.FEATURE && entry.featureToModify() != null){
+
+                }
+            });
+
+            if (!placementsToRemove.get().isEmpty()) builder.getGenerationSettings().getFeatures(stepping).removeAll(placementsToRemove.get());
+
+            if (!featuresToAdd.get().isEmpty()) builder.getGenerationSettings().getFeatures(stepping).addAll(featuresToAdd.get());
+
+        }
     }
 
     private void runRemovals(Biome biome, ModifiableBiomeInfo.BiomeInfo.Builder builder){

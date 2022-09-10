@@ -4,6 +4,7 @@ import ca.eelt.featorio.Featorio;
 import ca.eelt.featorio.misc.Util;
 import com.google.gson.*;
 import net.minecraft.core.Registry;
+import net.minecraft.data.BuiltinRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.GsonHelper;
@@ -11,6 +12,7 @@ import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.GenerationStep;
 import net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration;
+import net.minecraft.world.level.levelgen.placement.PlacedFeature;
 import net.minecraft.world.level.levelgen.structure.templatesystem.TagMatchTest;
 import net.minecraftforge.common.world.BiomeModifier;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -29,7 +31,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class ConfigSerializer {
 
     public static AtomicReference<ArrayList<FeatorioFeatureEntry>> additionEntries = new AtomicReference<>(new ArrayList<>());
-    public static AtomicReference<ArrayList<FeatorioFeatureEntry>> modifyEntries = new AtomicReference<>(new ArrayList<>());
+    public static AtomicReference<ArrayList<FeatorioModificationEntry>> modifyEntries = new AtomicReference<>(new ArrayList<>());
     public static AtomicReference<ArrayList<FeatorioFeatureEntry>> removalEntries = new AtomicReference<>(new ArrayList<>());
 
     public static void serialize(){
@@ -60,8 +62,9 @@ public class ConfigSerializer {
                         //additionType = AdditionType.BLOCK_STATE_CONFIGURATION;
                     } else if (additionTypeString.equals("lake")){
                         additionEntries.get().add(generateLakeConfigurationAddition(masterObject));
-                    }
-                }
+                    } else Featorio.LOGGER.warn("Invalid modification_type: " + additionTypeString + " detected. " + file.getName() + " will not be loaded.");
+
+                } else Featorio.LOGGER.warn("No addition_type found for " + file.getName() + ", this JSON will not be loaded.");
 
             });
         }
@@ -91,6 +94,19 @@ public class ConfigSerializer {
 
                 System.out.println("Printing loaded modify JSON " + file.getName() + ": ");
                 System.out.println(masterObject.toString());
+
+                // Serialize JSON
+                if (masterObject.has("modification_type")){
+                    String modificationType = masterObject.get("modification_type").getAsString();
+
+                    if (modificationType.equals("placement")){
+                        modifyEntries.get().add(generatePlacementModificationEntry(masterObject));
+                    } else if (modificationType.equals("feature")){
+
+                    } else Featorio.LOGGER.warn("Invalid modification_type: " + modificationType + " detected. " + file.getName() + " will not be loaded.");
+
+                } else Featorio.LOGGER.warn("No modification_type found for " + file.getName() + ", this JSON will not be loaded.");
+
             });
         }
     }
@@ -187,6 +203,47 @@ public class ConfigSerializer {
                 featureConfiguration,
                 stepping
         );
+    }
+
+    private static FeatorioModificationEntry generatePlacementModificationEntry(JsonObject masterObject){
+        ModificationType modificationType = ModificationType.PLACEMENT;
+        PlacedFeature placedFeature = null;
+        //Holder<Biome> biomeHolder = Holder.direct(Biomes.DESERT);
+        AtomicReference<ArrayList<TagKey<Biome>>> whitelistedBiomeKeys = new AtomicReference<>(new ArrayList<>());
+        AtomicReference<ArrayList<TagKey<Biome>>> blacklistedBiomeKeys = new AtomicReference<>(new ArrayList<>());
+        FeatureConfiguration featureConfiguration = null;
+        GenerationStep.Decoration stepping = null;
+
+        if (masterObject.has("feature_to_modify")){
+            placedFeature = BuiltinRegistries.PLACED_FEATURE.get(new ResourceLocation(masterObject.get("feature_to_modify").getAsString()));
+        } else throw new JsonParseException("Can't find feature_to_modify in JSON!");
+
+        // serialize and process biome data
+        if (masterObject.has("biome_spawns")){
+            Pair<List<TagKey<Biome>>,List<TagKey<Biome>>> serializedBiomeKeys = buildBiomeTagKeys(masterObject.getAsJsonObject("biome_spawns"));
+
+            whitelistedBiomeKeys.get().addAll(serializedBiomeKeys.getA());
+            blacklistedBiomeKeys.get().addAll(serializedBiomeKeys.getB());
+        } else throw new JsonParseException("Can't find biome_spawns in JSON!");
+
+        // Serialize and process the main configuration of the feature to be added
+        if (masterObject.has("configuration")){
+            featureConfiguration = buildFeatureConfiguration(masterObject.get("configuration").getAsJsonObject());
+        } else throw new JsonParseException("Can't find configuration in JSON!");
+
+        if (masterObject.has("generation_step")){
+            stepping = Util.computeStepping(masterObject.get("generation_step").getAsString());
+        } else throw new JsonParseException("Can't find generation_step in JSON!");
+
+        return new FeatorioModificationEntry(
+                modificationType,
+                null,
+                placedFeature,
+                whitelistedBiomeKeys.get(),
+                blacklistedBiomeKeys.get(),
+                featureConfiguration,
+                stepping
+                );
     }
 
     private static Pair<List<TagKey<Biome>>,List<TagKey<Biome>>> buildBiomeTagKeys(JsonObject biomeObject){
@@ -312,5 +369,10 @@ public class ConfigSerializer {
     public enum AdditionType {
         ORE_CONFIGURATION,
         LAKE_CONFIGURATION,
+    }
+
+    public enum ModificationType {
+        PLACEMENT,
+        FEATURE
     }
 }
