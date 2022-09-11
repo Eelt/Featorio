@@ -23,7 +23,6 @@ import net.minecraftforge.common.world.ModifiableBiomeInfo;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Logger;
 
 public class FeatorioModifier implements BiomeModifier {
 
@@ -107,18 +106,18 @@ public class FeatorioModifier implements BiomeModifier {
 
     // See net.minecraftforge.common.world.ForgeBiomeModifiers#RemoveFeaturesBiomeModifier record
     private void runModifies(Holder<Biome> biome, ModifiableBiomeInfo.BiomeInfo.Builder builder){
-        System.out.println("Run Modifies called! ");
+        Featorio.LOGGER.debug("Run Modifies called! ");
 
         for (GenerationStep.Decoration stepping : GenerationStep.Decoration.values()){ // Process on per stepping basis
 
-            Featorio.LOGGER.debug("Processing modifies for Generation step: " + stepping);
+            //Featorio.LOGGER.debug("Processing modifies for Generation step: " + stepping);
             AtomicReference<ArrayList<Holder<PlacedFeature>>> featuresToAdd = new AtomicReference<>(new ArrayList<>());
 
             ConfigSerializer.modifyEntries.get().parallelStream().forEach(entry -> { // Go through all modification entries
 
                 if (entry.modificationType() == ConfigSerializer.ModificationType.PLACEMENT && entry.placement() != null){ // Modify by checking placements
                     PlacedFeature entryPlacement = entry.placement();
-                    Featorio.LOGGER.debug("Found modification entry of type: " + entry.modificationType() + " for " + stepping + " in biome with keys: ");
+                    //Featorio.LOGGER.debug("Found modification entry of type: " + entry.modificationType() + " for " + stepping + " in biome with keys: ");
                     biome.getTagKeys().toList().forEach(biomeTagKey -> System.out.print(biomeTagKey));
 
                     for(int i = 0; i < builder.getGenerationSettings().getFeatures(stepping).size(); i++) { // Iterate through all placements
@@ -132,7 +131,15 @@ public class FeatorioModifier implements BiomeModifier {
                         }
                     }
 
-                    if (entry.generationStepping() == stepping && biomeHasValidTags(entry.mandatoryIncludeKeys(), entry.mandatoryIncludeKeys(), biome)){
+                    //Featorio.LOGGER.debug("Whitelist: " + entry.mandatoryIncludeKeys().toString() + "Blacklist: " + entry.anyExcludeKeys().toString());
+                    //Featorio.LOGGER.debug("in runModifies, Biome keys: " + biome.getTagKeys().toList().toString());
+                    List<TagKey<Biome>> debugWhiteList = biome.getTagKeys().filter(key -> entry.mandatoryIncludeKeys().contains(key)).toList();
+                    List<TagKey<Biome>> debugBlacklist = biome.getTagKeys().filter(key -> entry.anyExcludeKeys().contains(key)).toList();
+
+                    if (!debugWhiteList.isEmpty()){
+                        Featorio.LOGGER.debug("Debug list contents: " + debugWhiteList.toString() + " isSame? " + entry.mandatoryIncludeKeys().equals(debugWhiteList));
+                    }
+                    if (entry.generationStepping() == stepping && entry.mandatoryIncludeKeys().equals(debugWhiteList) && entry.anyExcludeKeys().stream().filter(key -> debugBlacklist.contains(key)).count() == 0){
 
                         featuresToAdd.get().add(buildPlacedFeature(entry, entryPlacement.feature().get())); // Build the PlacedFeature and add to List to be added later
                         Featorio.LOGGER.debug("Adding modified feature on stepping: " + stepping + " " + entryPlacement.feature().get());
@@ -153,16 +160,18 @@ public class FeatorioModifier implements BiomeModifier {
                         }
                     }
                 }
-            });
+            }); // end of specific entry processing
 
 
             // Additions after to prevent issues/unwanted removals
             if (!featuresToAdd.get().isEmpty()){
-                builder.getGenerationSettings().getFeatures(stepping).addAll(featuresToAdd.get());
+                boolean worked = builder.getGenerationSettings().getFeatures(stepping).addAll(featuresToAdd.get());
+                Featorio.LOGGER.debug("Did add work: " + worked);
             } else {
-                System.out.println("Features to add is empty!");
+                //Featorio.LOGGER.debug("Features to add is empty!");
             }
-        }
+
+        } // end of stepping
     }
 
     private void runRemovals(Holder<Biome> biome, ModifiableBiomeInfo.BiomeInfo.Builder builder){
