@@ -23,6 +23,7 @@ import net.minecraftforge.common.world.ModifiableBiomeInfo;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Logger;
 
 public class FeatorioModifier implements BiomeModifier {
 
@@ -111,7 +112,6 @@ public class FeatorioModifier implements BiomeModifier {
         for (GenerationStep.Decoration stepping : GenerationStep.Decoration.values()){ // Process on per stepping basis
 
             Featorio.LOGGER.debug("Processing modifies for Generation step: " + stepping);
-            AtomicReference<ArrayList<Holder<PlacedFeature>>> placementsToRemove = new AtomicReference<>(new ArrayList<>());
             AtomicReference<ArrayList<Holder<PlacedFeature>>> featuresToAdd = new AtomicReference<>(new ArrayList<>());
 
             ConfigSerializer.modifyEntries.get().parallelStream().forEach(entry -> { // Go through all modification entries
@@ -126,7 +126,8 @@ public class FeatorioModifier implements BiomeModifier {
 
                         //Featorio.LOGGER.debug("bultPlacement: "  + builtPlacement.toString() + " entryPlacement" + entryPlacement.toString());
                         if (builtPlacement.toString().equals(entryPlacement.toString())/*builtPlacement.equals(entryPlacement)*/){
-                            placementsToRemove.get().add(Holder.direct(builtPlacement));
+                            builder.getGenerationSettings().getFeatures(stepping).remove(i);
+                            i--;
                             Featorio.LOGGER.debug("Found targeted placement! Entry: " + entryPlacement + " built: " + builtPlacement);
                         }
                     }
@@ -144,21 +145,23 @@ public class FeatorioModifier implements BiomeModifier {
                         ConfiguredFeature<?,?> configuredFeature = placedFeatureProxy.get().feature().get();
 
                         if (configuredFeature.feature().equals(entry.featureToModify())){
-                            placementsToRemove.get().add(placedFeatureProxy); // Easier if we just nuke all the placements of that pre-configured feature
-
-                            featuresToAdd.get().add(buildPlacedFeature(entry, configuredFeature)); // Build new placement and then add
+                            builder.getGenerationSettings().getFeatures(stepping).remove(i);
+                            i--;
+                            if (entry.generationStepping() == stepping && biomeHasValidTags(entry.mandatoryIncludeKeys(), entry.anyExcludeKeys(), biome)){
+                                featuresToAdd.get().add(buildPlacedFeature(entry, configuredFeature)); // Build new placement and then add
+                            }
                         }
                     }
-
                 }
             });
 
-            // Removals first
-            if (!placementsToRemove.get().isEmpty()) builder.getGenerationSettings().getFeatures(stepping).removeAll(placementsToRemove.get());
-
 
             // Additions after to prevent issues/unwanted removals
-            if (!featuresToAdd.get().isEmpty()) builder.getGenerationSettings().getFeatures(stepping).addAll(featuresToAdd.get());
+            if (!featuresToAdd.get().isEmpty()){
+                builder.getGenerationSettings().getFeatures(stepping).addAll(featuresToAdd.get());
+            } else {
+                System.out.println("Features to add is empty!");
+            }
         }
     }
 
