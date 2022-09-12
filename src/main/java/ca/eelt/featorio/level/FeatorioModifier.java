@@ -35,7 +35,7 @@ public class FeatorioModifier implements BiomeModifier {
 
     @Override
     public void modify(Holder<Biome> biome, Phase phase, ModifiableBiomeInfo.BiomeInfo.Builder builder) {
-        System.out.println("Modify called, Phase: " + phase);
+//        System.out.println("Modify called, Phase: " + phase);
         switch (phase){
             case ADD -> runAdditions(biome, builder);
             case MODIFY -> runModifies(biome, builder);
@@ -44,9 +44,9 @@ public class FeatorioModifier implements BiomeModifier {
     }
 
     private void runAdditions(Holder<Biome> biome, ModifiableBiomeInfo.BiomeInfo.Builder builder){
-        System.out.println("Featorio loaded features to be added: " + ConfigSerializer.additionEntries.get().size() );
+//        System.out.println("Featorio loaded features to be added: " + ConfigSerializer.additionEntries.get().size() );
         for (FeatorioFeatureEntry entry : ConfigSerializer.additionEntries.get()){
-            System.out.println("entry: " + entry + " " + entry.mandatoryIncludeKeys() + ", " + entry.generationStepping());
+//            System.out.println("entry: " + entry + " " + entry.mandatoryIncludeKeys() + ", " + entry.generationStepping());
 
 //            if (entry.biomes() != null && !entry.biomes().isEmpty()){
 //                if (!entry.biomes().get(0).get().equals(biome.get())) return;
@@ -57,7 +57,7 @@ public class FeatorioModifier implements BiomeModifier {
                 return;
             }
 
-            System.out.println("Verified Tags are correct");
+//            System.out.println("Verified Tags are correct");
 
             ConfiguredFeature<?,?> modifiedConfiguredFeature = null;
 
@@ -98,7 +98,7 @@ public class FeatorioModifier implements BiomeModifier {
                             InSquarePlacement.spread()
                     )));
 
-            System.out.println("Featorio is about to add a custom feature!!");
+//            System.out.println("Featorio is about to add a custom feature!!");
             builder.getGenerationSettings().addFeature(entry.generationStepping(), newPlacedFeature);
 
         }
@@ -107,7 +107,7 @@ public class FeatorioModifier implements BiomeModifier {
 
     // See net.minecraftforge.common.world.ForgeBiomeModifiers#RemoveFeaturesBiomeModifier record
     private void runModifies(Holder<Biome> biome, ModifiableBiomeInfo.BiomeInfo.Builder builder){
-        Featorio.LOGGER.debug("Run Modifies called! ");
+//        Featorio.LOGGER.debug("Run Modifies called! ");
 
         for (GenerationStep.Decoration stepping : GenerationStep.Decoration.values()){ // Process on per stepping basis
 
@@ -119,7 +119,7 @@ public class FeatorioModifier implements BiomeModifier {
                 if (entry.featureType() == ConfigSerializer.FeatureType.PLACEMENT && entry.placement() != null){ // Modify by checking placements
                     PlacedFeature entryPlacement = entry.placement();
                     //Featorio.LOGGER.debug("Found modification entry of type: " + entry.modificationType() + " for " + stepping + " in biome with keys: ");
-                    biome.getTagKeys().toList().forEach(biomeTagKey -> System.out.print(biomeTagKey));
+//                    biome.getTagKeys().toList().forEach(biomeTagKey -> System.out.print(biomeTagKey));
 
                     for(int i = 0; i < builder.getGenerationSettings().getFeatures(stepping).size(); i++) { // Iterate through all placements
                         PlacedFeature builtPlacement = builder.getGenerationSettings().getFeatures(stepping).get(i).get();
@@ -128,7 +128,7 @@ public class FeatorioModifier implements BiomeModifier {
                         if (builtPlacement.toString().equals(entryPlacement.toString())/*builtPlacement.equals(entryPlacement)*/){
                             builder.getGenerationSettings().getFeatures(stepping).remove(i);
                             i--;
-                            Featorio.LOGGER.debug("Found targeted placement! Entry: " + entryPlacement + " built: " + builtPlacement);
+//                            Featorio.LOGGER.debug("Found targeted placement! Entry: " + entryPlacement + " built: " + builtPlacement);
                         }
                     }
 
@@ -138,12 +138,12 @@ public class FeatorioModifier implements BiomeModifier {
                     List<TagKey<Biome>> debugBlacklist = biome.getTagKeys().filter(key -> entry.anyExcludeKeys().contains(key)).toList();
 
                     if (!debugWhiteList.isEmpty()){
-                        Featorio.LOGGER.debug("Debug list contents: " + debugWhiteList.toString() + " isSame? " + entry.mandatoryIncludeKeys().equals(debugWhiteList));
+//                        Featorio.LOGGER.debug("Debug list contents: " + debugWhiteList.toString() + " isSame? " + entry.mandatoryIncludeKeys().equals(debugWhiteList));
                     }
                     if (entry.generationStepping() == stepping && entry.mandatoryIncludeKeys().equals(debugWhiteList) && entry.anyExcludeKeys().stream().filter(key -> debugBlacklist.contains(key)).count() == 0){
 
                         featuresToAdd.get().add(buildPlacedFeature(entry, entryPlacement.feature().get())); // Build the PlacedFeature and add to List to be added later
-                        Featorio.LOGGER.debug("Adding modified feature on stepping: " + stepping + " " + entryPlacement.feature().get());
+//                        Featorio.LOGGER.debug("Adding modified feature on stepping: " + stepping + " " + entryPlacement.feature().get());
                     }
 
                 } else if (entry.featureType() == ConfigSerializer.FeatureType.FEATURE && entry.featureToModify() != null){ // Modify by checking features
@@ -167,7 +167,7 @@ public class FeatorioModifier implements BiomeModifier {
             // Additions after to prevent issues/unwanted removals
             if (!featuresToAdd.get().isEmpty()){
                 boolean worked = builder.getGenerationSettings().getFeatures(stepping).addAll(featuresToAdd.get());
-                Featorio.LOGGER.debug("Did add work: " + worked);
+                Featorio.LOGGER.debug("Was able to modify feature? " + worked);
             } else {
                 //Featorio.LOGGER.debug("Features to add is empty!");
             }
@@ -176,7 +176,7 @@ public class FeatorioModifier implements BiomeModifier {
     }
 
     private void runRemovals(Holder<Biome> biome, ModifiableBiomeInfo.BiomeInfo.Builder builder){
-        Featorio.LOGGER.debug("Run removals called!");
+//        Featorio.LOGGER.debug("Run removals called!");
 
         for (GenerationStep.Decoration stepping : GenerationStep.Decoration.values()){
 
@@ -212,18 +212,18 @@ public class FeatorioModifier implements BiomeModifier {
 
         // For whitelists: sizes should be identical when filtering, if so, all the tags needed are present
         if (whitelist != null && !whitelist.isEmpty() && whitelist.size() > 0){
-            System.out.println("WhiteList is not empty or null!");
+//            System.out.println("WhiteList is not empty or null!");
             // Sizes should be identical
             wPass = biome.getTagKeys().filter(b -> whitelist.contains(b)).count() == whitelist.size();
-            System.out.println("Computed wPass: " + wPass);
+//            System.out.println("Computed wPass: " + wPass);
             if (wPass == false) return false;
         }
 
         // If any match, return, as a blacklisted tag has been hit
         if (blacklist != null && !blacklist.isEmpty()){
-            System.out.println("BlackList is not empty or null!");
+//            System.out.println("BlackList is not empty or null!");
             bPass = biome.getTagKeys().noneMatch(blacklist::contains);
-            System.out.println("Computed bPass: " + bPass);
+//            System.out.println("Computed bPass: " + bPass);
             if (bPass == false) return false;
         }
 

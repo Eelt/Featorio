@@ -4,7 +4,6 @@ import ca.eelt.featorio.config.ConfigSerializer;
 import ca.eelt.featorio.level.Modifiers;
 import ca.eelt.featorio.level.feature.Features;
 import com.mojang.logging.LogUtils;
-import net.minecraft.client.Minecraft;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.server.ServerStartingEvent;
@@ -63,19 +62,19 @@ public class Featorio {
         LOGGER.info("HELLO FROM COMMON SETUP");
         LOGGER.info("DIRT BLOCK >> {}", ForgeRegistries.BLOCKS.getKey(Blocks.DIRT));
         ConfigSerializer.serialize();
-        System.out.println("Addition Entries size after serialization: " + ConfigSerializer.additionEntries.get().size());
-        ConfigSerializer.additionEntries.get().forEach(entry -> {
-            System.out.println("Include Keys: " + entry.mandatoryIncludeKeys());
-            System.out.println("Exclude Keys: " + entry.anyExcludeKeys());
-            System.out.println("Stepping: " + entry.generationStepping());
-        });
+//        System.out.println("Addition Entries size after serialization: " + ConfigSerializer.additionEntries.get().size());
+//        ConfigSerializer.additionEntries.get().forEach(entry -> {
+//            System.out.println("Include Keys: " + entry.mandatoryIncludeKeys());
+//            System.out.println("Exclude Keys: " + entry.anyExcludeKeys());
+//            System.out.println("Stepping: " + entry.generationStepping());
+//        });
     }
 
     // You can use SubscribeEvent and let the Event Bus discover methods to call
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
         // Do something when the server starts
-        LOGGER.info("HELLO from server starting");
+        LOGGER.info("Featorio received a server starting event!");
     }
 
     // You can use EventBusSubscriber to automatically register all static methods in the class annotated with @SubscribeEvent
@@ -84,8 +83,8 @@ public class Featorio {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
             // Some client setup code
-            LOGGER.info("HELLO FROM CLIENT SETUP");
-            LOGGER.info("MINECRAFT NAME >> {}", Minecraft.getInstance().getUser().getName());
+//            LOGGER.info("HELLO FROM CLIENT SETUP");
+//            LOGGER.info("MINECRAFT NAME >> {}", Minecraft.getInstance().getUser().getName());
         }
     }
 

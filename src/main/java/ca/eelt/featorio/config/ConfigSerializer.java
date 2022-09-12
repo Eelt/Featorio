@@ -45,19 +45,19 @@ public class ConfigSerializer {
         // Additions
         if (additions.exists() && additions.listFiles().length > 0){
             Arrays.asList(additions.listFiles()).parallelStream().filter(file -> file.getPath().endsWith(".json")).forEach(file -> {
-                System.out.println("Detected addition file: " + file.getName());
+//                System.out.println("Detected addition file: " + file.getName());
 
                 JsonElement element = getJsonFromFile(file.getPath());
                 if (element == null) throw new NullPointerException("Json element is null for file: " + file.getName());
                 JsonObject masterObject = element.getAsJsonObject();
 
-                System.out.println("Printing loaded addition JSON " + file.getName() + ": ");
-                System.out.println(masterObject.toString());
+//                System.out.println("Printing loaded addition JSON " + file.getName() + ": ");
+//                System.out.println(masterObject.toString());
 
                 // Serialize JSON
                 if (masterObject.has("addition_type")){
                     String additionTypeString = masterObject.get("addition_type").getAsString();
-                    System.out.println("Addition Type String captured: " + additionTypeString);
+//                    System.out.println("Addition Type String captured: " + additionTypeString);
 
                     if (additionTypeString.equals("ore")){
                         additionEntries.get().add(generateOreConfigurationAddition(masterObject));
@@ -75,14 +75,14 @@ public class ConfigSerializer {
         // Removals
         if (removals.exists() && removals.listFiles().length > 0){
             Arrays.asList(removals.listFiles()).parallelStream().filter(file -> file.getPath().endsWith(".json")).forEach(file -> {
-                System.out.println("Detected removal file: " + file.getName());
+//                System.out.println("Detected removal file: " + file.getName());
 
                 JsonElement element = getJsonFromFile(file.getPath());
                 if (element == null) throw new NullPointerException("Json element is null for file: " + file.getName());
                 JsonObject masterObject = element.getAsJsonObject();
 
-                System.out.println("Printing loaded removal JSON " + file.getName() + ": ");
-                System.out.println(masterObject.toString());
+//                System.out.println("Printing loaded removal JSON " + file.getName() + ": ");
+//                System.out.println(masterObject.toString());
 
                 // Serialize JSON
                 if (masterObject.has("removal_type")){
@@ -94,14 +94,14 @@ public class ConfigSerializer {
         // Modifys
         if (modify.exists() && modify.listFiles().length > 0){
             Arrays.asList(modify.listFiles()).parallelStream().filter(file -> file.getPath().endsWith(".json")).forEach(file -> {
-                System.out.println("Detected modify file: " + file.getName());
+//                System.out.println("Detected modify file: " + file.getName());
 
                 JsonElement element = getJsonFromFile(file.getPath());
                 if (element == null) throw new NullPointerException("Json element is null for file: " + file.getName());
                 JsonObject masterObject = element.getAsJsonObject();
 
-                System.out.println("Printing loaded modify JSON " + file.getName() + ": ");
-                System.out.println(masterObject.toString());
+//                System.out.println("Printing loaded modify JSON " + file.getName() + ": ");
+//                System.out.println(masterObject.toString());
 
                 // Serialize JSON
                 if (masterObject.has("modification_type")){
