@@ -1,5 +1,7 @@
-package ca.eelt.featorio.config;
+package ca.eelt.featorio.config.entries;
 
+import ca.eelt.featorio.config.ConfigSerializer;
+import ca.eelt.featorio.config.FeatureConfiguration;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.levelgen.GenerationStep;
@@ -9,7 +11,7 @@ import oshi.util.tuples.Pair;
 import javax.annotation.Nullable;
 import java.util.List;
 
-public record FeatorioModificationEntry(ConfigSerializer.ModificationType modificationType,
+public record FeatorioModificationEntry(ConfigSerializer.FeatureType featureType,
                                         @Nullable net.minecraft.world.level.levelgen.feature.Feature<?> featureToModify,
                                         @Nullable PlacedFeature placement,
                                         //@Nullable List<Holder<Biome>> biomes,

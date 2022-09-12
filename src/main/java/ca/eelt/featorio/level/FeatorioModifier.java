@@ -2,8 +2,9 @@ package ca.eelt.featorio.level;
 
 import ca.eelt.featorio.Featorio;
 import ca.eelt.featorio.config.ConfigSerializer;
-import ca.eelt.featorio.config.FeatorioFeatureEntry;
-import ca.eelt.featorio.config.FeatorioModificationEntry;
+import ca.eelt.featorio.config.entries.FeatorioFeatureEntry;
+import ca.eelt.featorio.config.entries.FeatorioModificationEntry;
+import ca.eelt.featorio.config.entries.FeatorioRemovalEntry;
 import ca.eelt.featorio.level.feature.Features;
 import ca.eelt.featorio.level.feature.lakes.CustomLakeFeature;
 import com.mojang.serialization.Codec;
@@ -115,7 +116,7 @@ public class FeatorioModifier implements BiomeModifier {
 
             ConfigSerializer.modifyEntries.get().parallelStream().forEach(entry -> { // Go through all modification entries
 
-                if (entry.modificationType() == ConfigSerializer.ModificationType.PLACEMENT && entry.placement() != null){ // Modify by checking placements
+                if (entry.featureType() == ConfigSerializer.FeatureType.PLACEMENT && entry.placement() != null){ // Modify by checking placements
                     PlacedFeature entryPlacement = entry.placement();
                     //Featorio.LOGGER.debug("Found modification entry of type: " + entry.modificationType() + " for " + stepping + " in biome with keys: ");
                     biome.getTagKeys().toList().forEach(biomeTagKey -> System.out.print(biomeTagKey));
@@ -145,7 +146,7 @@ public class FeatorioModifier implements BiomeModifier {
                         Featorio.LOGGER.debug("Adding modified feature on stepping: " + stepping + " " + entryPlacement.feature().get());
                     }
 
-                } else if (entry.modificationType() == ConfigSerializer.ModificationType.FEATURE && entry.featureToModify() != null){ // Modify by checking features
+                } else if (entry.featureType() == ConfigSerializer.FeatureType.FEATURE && entry.featureToModify() != null){ // Modify by checking features
 
                     for (int i = 0; i < builder.getGenerationSettings().getFeatures(stepping).size(); i++){
                         Holder<PlacedFeature> placedFeatureProxy = builder.getGenerationSettings().getFeatures(stepping).get(i);
@@ -175,7 +176,34 @@ public class FeatorioModifier implements BiomeModifier {
     }
 
     private void runRemovals(Holder<Biome> biome, ModifiableBiomeInfo.BiomeInfo.Builder builder){
+        Featorio.LOGGER.debug("Run removals called!");
 
+        for (GenerationStep.Decoration stepping : GenerationStep.Decoration.values()){
+
+            for (FeatorioRemovalEntry entry : ConfigSerializer.removalEntries.get()){
+
+                for (int i = 0; i < builder.getGenerationSettings().getFeatures(stepping).size(); i++){
+
+                    if (entry.featureType() == ConfigSerializer.FeatureType.PLACEMENT){
+
+                        if (builder.getGenerationSettings().getFeatures(stepping).get(i).get().toString().equals(entry.placement().toString())){
+                            builder.getGenerationSettings().getFeatures(stepping).remove(i);
+                            i--;
+                        }
+
+
+                    } else if (entry.featureType() == ConfigSerializer.FeatureType.FEATURE){
+
+                        if (builder.getGenerationSettings().getFeatures(stepping).get(i).get().feature().get().toString().equals(entry.feature().toString())){
+                            builder.getGenerationSettings().getFeatures(stepping).remove(i);
+                            i--;
+                        }
+
+                    }
+
+                }
+            }
+        }
     }
 
     private boolean biomeHasValidTags(List<TagKey<Biome>> whitelist, List<TagKey<Biome>> blacklist, Holder<Biome> biome){

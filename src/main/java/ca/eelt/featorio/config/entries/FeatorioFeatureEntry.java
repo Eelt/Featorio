@@ -1,5 +1,7 @@
-package ca.eelt.featorio.config;
+package ca.eelt.featorio.config.entries;
 
+import ca.eelt.featorio.config.ConfigSerializer;
+import ca.eelt.featorio.config.FeatureConfiguration;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.state.BlockState;

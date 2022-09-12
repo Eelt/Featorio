@@ -1,6 +1,9 @@
 package ca.eelt.featorio.config;
 
 import ca.eelt.featorio.Featorio;
+import ca.eelt.featorio.config.entries.FeatorioFeatureEntry;
+import ca.eelt.featorio.config.entries.FeatorioModificationEntry;
+import ca.eelt.featorio.config.entries.FeatorioRemovalEntry;
 import ca.eelt.featorio.misc.Util;
 import com.google.gson.*;
 import net.minecraft.core.Registry;
@@ -32,7 +35,7 @@ public class ConfigSerializer {
 
     public static AtomicReference<ArrayList<FeatorioFeatureEntry>> additionEntries = new AtomicReference<>(new ArrayList<>());
     public static AtomicReference<ArrayList<FeatorioModificationEntry>> modifyEntries = new AtomicReference<>(new ArrayList<>());
-    public static AtomicReference<ArrayList<FeatorioFeatureEntry>> removalEntries = new AtomicReference<>(new ArrayList<>());
+    public static AtomicReference<ArrayList<FeatorioRemovalEntry>> removalEntries = new AtomicReference<>(new ArrayList<>());
 
     public static void serialize(){
         File additions = new File(Featorio.getAddPath().toUri());
@@ -80,6 +83,11 @@ public class ConfigSerializer {
 
                 System.out.println("Printing loaded removal JSON " + file.getName() + ": ");
                 System.out.println(masterObject.toString());
+
+                // Serialize JSON
+                if (masterObject.has("removal_type")){
+                    removalEntries.get().add(generateRemovalEntry(masterObject));
+                } else Featorio.LOGGER.warn("No removal_type found for " + file.getName() + ", this JSON will not be loaded.");
             });
         }
 
@@ -97,14 +105,7 @@ public class ConfigSerializer {
 
                 // Serialize JSON
                 if (masterObject.has("modification_type")){
-                    String modificationType = masterObject.get("modification_type").getAsString();
-
-                    if (modificationType.equals("placement")){
-                        modifyEntries.get().add(generatePlacementModificationEntry(masterObject));
-                    } else if (modificationType.equals("feature")){
-
-                    } else Featorio.LOGGER.warn("Invalid modification_type: " + modificationType + " detected. " + file.getName() + " will not be loaded.");
-
+                    modifyEntries.get().add(generateModificationEntry(masterObject));
                 } else Featorio.LOGGER.warn("No modification_type found for " + file.getName() + ", this JSON will not be loaded.");
 
             });
@@ -205,8 +206,9 @@ public class ConfigSerializer {
         );
     }
 
-    private static FeatorioModificationEntry generatePlacementModificationEntry(JsonObject masterObject){
-        ModificationType modificationType = ModificationType.PLACEMENT;
+    private static FeatorioModificationEntry generateModificationEntry(JsonObject masterObject){
+        FeatureType featureType = null;
+        net.minecraft.world.level.levelgen.feature.Feature<?> feature = null;
         PlacedFeature placedFeature = null;
         //Holder<Biome> biomeHolder = Holder.direct(Biomes.DESERT);
         AtomicReference<ArrayList<TagKey<Biome>>> whitelistedBiomeKeys = new AtomicReference<>(new ArrayList<>());
@@ -214,8 +216,23 @@ public class ConfigSerializer {
         FeatureConfiguration featureConfiguration = null;
         GenerationStep.Decoration stepping = null;
 
+        if (masterObject.has("modification_type")){
+            String modificationType = masterObject.get("modification_type").getAsString();
+
+            if (modificationType.equals("placement")){
+                featureType = FeatureType.PLACEMENT;
+            } else if (modificationType.equals("feature")){
+                featureType = FeatureType.FEATURE;
+            } else throw new JsonParseException("Invalid modification_type: " + featureType + ", type must be " + FeatureType.PLACEMENT + " or " + FeatureType.FEATURE);
+
+        } else throw new JsonParseException("Can't find modification_type in JSON!");
+
         if (masterObject.has("feature_to_modify")){
-            placedFeature = BuiltinRegistries.PLACED_FEATURE.get(new ResourceLocation(masterObject.get("feature_to_modify").getAsString()));
+            if (featureType == FeatureType.PLACEMENT){
+                placedFeature = BuiltinRegistries.PLACED_FEATURE.get(new ResourceLocation(masterObject.get("feature_to_modify").getAsString()));
+            } else if (featureType == FeatureType.FEATURE){ // Sanity check
+                feature = ForgeRegistries.FEATURES.getValue(new ResourceLocation(masterObject.get("feature_to_modify").getAsString()));
+            }
         } else throw new JsonParseException("Can't find feature_to_modify in JSON!");
 
         // serialize and process biome data
@@ -236,14 +253,43 @@ public class ConfigSerializer {
         } else throw new JsonParseException("Can't find generation_step in JSON!");
 
         return new FeatorioModificationEntry(
-                modificationType,
-                null,
+                featureType,
+                feature,
                 placedFeature,
                 whitelistedBiomeKeys.get(),
                 blacklistedBiomeKeys.get(),
                 featureConfiguration,
                 stepping
                 );
+    }
+
+    private static FeatorioModificationEntry generateFeatureModificationEntry(JsonObject masterObject){ // TODO: Modification based on feature instead of placement
+        return null;
+    }
+
+    private static FeatorioRemovalEntry generateRemovalEntry(JsonObject masterObject){
+        FeatureType featureType = null;
+        net.minecraft.world.level.levelgen.feature.Feature<?> feature = null;
+        PlacedFeature placedFeature = null;
+
+        String removalTypeString = masterObject.get("removal_type").getAsString();
+        if (removalTypeString.equals("placement")){
+            featureType = FeatureType.PLACEMENT;
+        } else if (removalTypeString.equals("feature")){
+            featureType = FeatureType.FEATURE;
+        } else throw new JsonParseException("Invalid removal_type: " + featureType + ", type must be " + FeatureType.PLACEMENT + " or " + FeatureType.FEATURE);
+
+        if (masterObject.has("feature_to_remove")){
+
+            if (featureType == FeatureType.PLACEMENT){
+                placedFeature = BuiltinRegistries.PLACED_FEATURE.get(new ResourceLocation(masterObject.get("feature_to_remove").getAsString()));
+            } else if (featureType == FeatureType.FEATURE){ // sanity check
+                feature = ForgeRegistries.FEATURES.getValue(new ResourceLocation(masterObject.get("feature_to_remove").getAsString()));
+            }
+
+        } else throw new JsonParseException("Can't find feature_to_remove in JSON!");
+
+        return new FeatorioRemovalEntry(featureType, feature, placedFeature);
     }
 
     private static Pair<List<TagKey<Biome>>,List<TagKey<Biome>>> buildBiomeTagKeys(JsonObject biomeObject){
@@ -371,7 +417,7 @@ public class ConfigSerializer {
         LAKE_CONFIGURATION,
     }
 
-    public enum ModificationType {
+    public enum FeatureType {
         PLACEMENT,
         FEATURE
     }
